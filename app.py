@@ -1,8 +1,12 @@
-from flask import Flask, render_template
+from flask import Flask, redirect, render_template, request, session, url_for
+from werkzeug.security import generate_password_hash
 
 from database.db import get_db, init_db, seed_db
 
 app = Flask(__name__)
+# Dev-only static key so sessions survive the debug reloader's autorestarts;
+# replace with an env-based secret before any real deployment.
+app.secret_key = "spendly-dev-secret-key"
 
 # Ensure the database schema exists and sample data is present before serving.
 with app.app_context():
@@ -19,8 +23,51 @@ def landing():
     return render_template("landing.html")
 
 
-@app.route("/register")
+@app.route("/register", methods=["GET", "POST"])
 def register():
+    if request.method == "POST":
+        name = request.form.get("name", "").strip()
+        email = request.form.get("email", "").strip()
+        password = request.form.get("password", "")
+
+        if not name or not email or not password:
+            return render_template(
+                "register.html", error="All fields are required.", name=name, email=email
+            )
+
+        if len(password) < 8:
+            return render_template(
+                "register.html",
+                error="Password must be at least 8 characters.",
+                name=name,
+                email=email,
+            )
+
+        conn = get_db()
+
+        existing = conn.execute(
+            "SELECT 1 FROM users WHERE email = ?", (email,)
+        ).fetchone()
+        if existing:
+            conn.close()
+            return render_template(
+                "register.html",
+                error="An account with that email already exists.",
+                name=name,
+                email=email,
+            )
+
+        cursor = conn.execute(
+            "INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)",
+            (name, email, generate_password_hash(password)),
+        )
+        conn.commit()
+        user_id = cursor.lastrowid
+        conn.close()
+
+        session["user_id"] = user_id
+        return redirect(url_for("profile"))
+
     return render_template("register.html")
 
 
