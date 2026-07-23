@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from flask import Flask, redirect, render_template, request, session, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -105,14 +107,72 @@ def logout():
     return redirect(url_for("landing"))
 
 
+@app.route("/profile")
+def profile():
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    conn = get_db()
+    user = conn.execute(
+        "SELECT id, name, email, created_at FROM users WHERE id = ?", (user_id,)
+    ).fetchone()
+
+    if user is None:
+        conn.close()
+        session.clear()
+        return redirect(url_for("login"))
+
+    stats = conn.execute(
+        "SELECT COUNT(*) AS expense_count, COALESCE(SUM(amount), 0) AS total_spent "
+        "FROM expenses WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+
+    category_rows = conn.execute(
+        "SELECT category, SUM(amount) AS total FROM expenses "
+        "WHERE user_id = ? GROUP BY category ORDER BY total DESC",
+        (user_id,),
+    ).fetchall()
+
+    activity = conn.execute(
+        "SELECT COUNT(DISTINCT date) AS active_days FROM expenses WHERE user_id = ?",
+        (user_id,),
+    ).fetchone()
+    conn.close()
+
+    total_spent = stats["total_spent"]
+    categories = [
+        {
+            "name": row["category"],
+            "total": row["total"],
+            "pct": round(row["total"] / total_spent * 100, 1) if total_spent else 0,
+        }
+        for row in category_rows
+    ]
+    top_category = categories[0] if categories else None
+
+    created_dt = datetime.strptime(user["created_at"], "%Y-%m-%d %H:%M:%S")
+    member_since = created_dt.strftime("%B %Y")
+    member_days = max((datetime.now() - created_dt).days, 0)
+
+    return render_template(
+        "profile.html",
+        name=user["name"],
+        email=user["email"],
+        member_since=member_since,
+        member_days=member_days,
+        expense_count=stats["expense_count"],
+        total_spent=total_spent,
+        categories=categories,
+        top_category=top_category,
+        active_days=activity["active_days"],
+    )
+
+
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/profile")
-def profile():
-    return "Profile page — coming in Step 4"
-
 
 @app.route("/expenses/add")
 def add_expense():

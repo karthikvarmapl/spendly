@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}My Profile — Spendly{% endblock %}
+
+{% block content %}
+
+<section class="profile-section">
+    <div class="profile-container">
+
+        <div class="profile-header">
+            <div class="profile-avatar">{{ name[0] | upper }}</div>
+            <div class="profile-header-info">
+                <h1 class="profile-name">{{ name }}</h1>
+                <p class="profile-email">{{ email }}</p>
+                <div class="profile-badges">
+                    <span class="profile-badge">Member since {{ member_since }}</span>
+                    <span class="profile-badge">{{ member_days }} day{{ 's' if member_days != 1 else '' }} tracking</span>
+                    <span class="profile-badge">Active on {{ active_days }} day{{ 's' if active_days != 1 else '' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-hero">
+            <div class="hero-stat-card hero-stat-total">
+                <span class="hero-stat-label">Total spent</span>
+                <span class="hero-stat-value">₹{{ "%.2f"|format(total_spent) }}</span>
+                <span class="hero-stat-sub">{{ expense_count }} expense{{ 's' if expense_count != 1 else '' }} logged</span>
+            </div>
+            <div class="hero-stat-card hero-stat-top">
+                <span class="hero-stat-label">Top category</span>
+                {% if top_category %}
+                <span class="hero-stat-value hero-stat-value-sm">{{ top_category.name }}</span>
+                <span class="hero-stat-sub">₹{{ "%.2f"|format(top_category.total) }} · {{ top_category.pct }}% of total</span>
+                {% else %}
+                <span class="hero-stat-value hero-stat-value-sm">—</span>
+                <span class="hero-stat-sub">No expenses yet</span>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if top_category %}
+        <div class="profile-insight">
+            <span class="profile-insight-icon">◈</span>
+            <p><strong>{{ top_category.name }}</strong> is your biggest category — {{ top_category.pct }}% of everything you've spent. See the full breakdown below.</p>
+        </div>
+        {% endif %}
+
+        <div class="profile-breakdown">
+            <h2 class="profile-section-title">Spending by category</h2>
+            {% if categories %}
+            <div class="cat-bars">
+                {% for cat in categories %}
+                <div class="cat-bar-row">
+                    <div class="cat-bar-top">
+                        <span class="cat-name">{{ cat.name }}</span>
+                        <span class="cat-pct">{{ cat.pct }}%</span>
+                    </div>
+                    <div class="cat-bar-bottom">
+                        <div class="cat-bar-track">
+                            <div class="cat-bar-fill cat-color-{{ loop.index0 % 4 }}" style="width: {{ cat.pct }}%"></div>
+                        </div>
+                        <span class="cat-amt">₹{{ "%.2f"|format(cat.total) }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="profile-empty">You haven't logged any expenses yet — add your first one to see your breakdown here.</p>
+            {% endif %}
+        </div>
+
+        <div class="profile-cta">
+            <div>
+                <h2 class="profile-cta-title">Keep the streak going</h2>
+                <p class="profile-cta-body">Log today's spending in seconds and watch your breakdown update.</p>
+            </div>
+            <a href="{{ url_for('add_expense') }}" class="btn-cta">+ Add an expense</a>
+        </div>
+
+    </div>
+</section>
+
+{% endblock %}
